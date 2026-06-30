@@ -1,0 +1,26 @@
+# Core vision / automation
+numpy>=1.24
+opencv-python>=4.8
+mss>=9.0
+pillow>=10.0
+pyyaml>=6.0
+requests>=2.31
+
+# Input + window control (Windows runtime). pywin32 is Windows-only and is
+# imported lazily so the package still imports/tests on Linux.
+pydirectinput>=1.0.4 ; platform_system == "Windows"
+pywin32>=306 ; platform_system == "Windows"
+keyboard>=0.13.5
+
+# Chat OCR + optional captcha. Requires the Tesseract-OCR binary installed
+# separately (see README).
+pytesseract>=0.3.10
+
+# Chat AI responder (Claude API)
+anthropic>=0.40
+
+# GUI
+customtkinter>=5.2
+
+# Dev / tests
+pytest>=7.4

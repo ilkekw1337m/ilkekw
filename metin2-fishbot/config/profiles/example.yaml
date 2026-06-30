@@ -1,0 +1,26 @@
+# Example calibration profile. Copy to e.g. my_server.yaml and adjust.
+# Overlaid on top of default_config.yaml when selected via --profile <name>
+# or runtime.profile. Only the keys you want to override need to appear here.
+
+window:
+  title: "Metin2"
+
+fishing:
+  system: auto
+  bait_hotkey: "2"
+  cast_hotkey: "1"
+
+# Window-relative [x, y, w, h]. Fill these from the Kalibrasyon tab.
+regions:
+  board: [520, 300, 192, 128]      # 6x4 jigsaw board (~32px cells)
+  bite: [400, 250, 220, 180]       # area where the strike marker appears
+  inventory: [610, 120, 220, 160]  # caught-fish / active-piece preview area
+  chat: [20, 470, 360, 110]        # chat / whisper area for OCR
+
+fish:
+  enabled: false
+  dispose_action: log   # log | drop | right_click | npc_drag
+
+chat_ai:
+  enabled: false
+  model: claude-opus-4-8

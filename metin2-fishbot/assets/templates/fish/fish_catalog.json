@@ -1,0 +1,119 @@
+{
+  "fish": [
+    {
+      "name": "Brook Trout",
+      "icon": "assets/templates/fish/brook_trout.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Carp",
+      "icon": "assets/templates/fish/carp.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Catfish",
+      "icon": "assets/templates/fish/catfish.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Crucian Carp",
+      "icon": "assets/templates/fish/crucian_carp.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Eastern Perch",
+      "icon": "assets/templates/fish/eastern_perch.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Eel",
+      "icon": "assets/templates/fish/eel.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Goby",
+      "icon": "assets/templates/fish/goby.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Goldfish",
+      "icon": "assets/templates/fish/goldfish.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Grass Carp",
+      "icon": "assets/templates/fish/grass_carp.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Large Zander",
+      "icon": "assets/templates/fish/large_zander.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Loach",
+      "icon": "assets/templates/fish/loach.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Lotus Fish",
+      "icon": "assets/templates/fish/lotus_fish.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Mandarin Fish",
+      "icon": "assets/templates/fish/mandarin_fish.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Marsh Snail",
+      "icon": "assets/templates/fish/marsh_snail.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Mirror Carp",
+      "icon": "assets/templates/fish/mirror_carp.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Perch",
+      "icon": "assets/templates/fish/perch.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Rainbow Trout",
+      "icon": "assets/templates/fish/rainbow_trout.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Red King Crab",
+      "icon": "assets/templates/fish/red_king_crab.png",
+      "preference": "keep"
+    },
+    {
+      "name": "River Trout",
+      "icon": "assets/templates/fish/river_trout.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Rudd",
+      "icon": "assets/templates/fish/rudd.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Salmon",
+      "icon": "assets/templates/fish/salmon.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Shiri",
+      "icon": "assets/templates/fish/shiri.png",
+      "preference": "keep"
+    },
+    {
+      "name": "Skygazer",
+      "icon": "assets/templates/fish/skygazer.png",
+      "preference": "keep"
+    }
+  ]
+}

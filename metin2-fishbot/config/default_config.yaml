@@ -1,0 +1,94 @@
+# Default configuration for the Metin2 fishing bot.
+# Copy / override per server+resolution via config/profiles/<name>.yaml.
+
+# ---------------------------------------------------------------------------
+# Capture / window
+# ---------------------------------------------------------------------------
+window:
+  # Title substring used to find the game window (Win32 backend).
+  title: "Metin2"
+  # Capture backend: "auto" picks win32 on Windows, mss elsewhere.
+  backend: auto
+
+# ---------------------------------------------------------------------------
+# Fishing system
+# ---------------------------------------------------------------------------
+fishing:
+  # "old"  -> classic cast/wait/strike loop
+  # "new"  -> jigsaw puzzle minigame
+  # "auto" -> branch on whichever UI is detected
+  system: auto
+  bait_hotkey: "2"      # key that attaches bait
+  cast_hotkey: "1"      # key that casts the rod
+  bait_time: 1.0        # seconds to wait before attaching bait
+  throw_time: 1.5       # seconds to wait after casting before detecting
+  match_threshold: 0.55 # template-match confidence threshold
+
+# ---------------------------------------------------------------------------
+# Humanizer / safety
+# ---------------------------------------------------------------------------
+safety:
+  emergency_hotkey: "f6"
+  click_cooldown: 0.30        # min seconds between clicks
+  delay_jitter: 0.15          # +/- gaussian jitter applied to delays
+  click_radius: 4             # random pixel offset radius around click target
+  max_runtime_minutes: 0      # 0 = unlimited
+  max_actions: 0              # 0 = unlimited
+  break_every_minutes: 0      # 0 = no periodic breaks
+  break_duration_seconds: 30
+
+# ---------------------------------------------------------------------------
+# Regions (filled by calibration; coordinates are window-relative)
+# All are [x, y, w, h].
+# ---------------------------------------------------------------------------
+regions:
+  board: null        # jigsaw puzzle board
+  bite: null         # area where the fish/strike indicator appears
+  inventory: null    # caught-fish inventory area (fish recognition)
+  chat: null         # chat / whisper area (chat OCR)
+
+puzzle:
+  rows: 4
+  cols: 6
+  cell_size: 32
+
+# ---------------------------------------------------------------------------
+# Fish selection + auto-burn
+# ---------------------------------------------------------------------------
+fish:
+  enabled: false
+  catalog_path: "assets/templates/fish/fish_catalog.json"
+  match_threshold: 0.7
+  # Disposal action for fish marked "burn": drop | right_click | npc_drag | log
+  dispose_action: log
+  npc_position: null   # [x, y] for npc_drag
+
+# ---------------------------------------------------------------------------
+# Chat AI responder (opt-in)
+# ---------------------------------------------------------------------------
+chat_ai:
+  enabled: false
+  model: "claude-opus-4-8"     # low-latency option: claude-haiku-4-5
+  max_tokens: 120
+  poll_interval: 3.0           # seconds between chat OCR polls
+  reply_cooldown: 8.0          # min seconds between replies
+  max_replies: 0               # 0 = unlimited
+  # Only react to messages whose line matches one of these (case-insensitive
+  # substrings). Empty list = react to any new whisper line.
+  triggers: ["gm", "admin", "bot", "are you there", "afk"]
+  # API key is read from ANTHROPIC_API_KEY env var or the GUI secure field.
+  persona: |
+    You are roleplaying as a human player in the MMORPG Metin2 who is busy
+    fishing. Someone just sent you an in-game whisper. Reply in ONE short,
+    casual sentence as a real, slightly distracted player would. Match the
+    language of the incoming message. Never reveal you are an AI or a bot,
+    never mention automation. Keep it under 12 words.
+
+# ---------------------------------------------------------------------------
+# Runtime
+# ---------------------------------------------------------------------------
+runtime:
+  dry_run: true       # when true: detect + decide + log, but send no input
+  debug: false        # save debug frames on failures
+  debug_dir: "debug"
+  profile: null       # name of a profile under config/profiles to overlay
