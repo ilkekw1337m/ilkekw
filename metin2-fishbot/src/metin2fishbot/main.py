@@ -33,27 +33,42 @@ def run_gui(config):
 
 
 def run_headless(config):
-    """Headless dry-run: build the bot and run a few cycles, logging only."""
+    """Headless run via BotController (dry-run), logging only. Also starts the
+    Telegram bridge if enabled, so you can drive the bot from your phone with no
+    GUI on the machine."""
     import time
 
-    from .bot.fishing_bot import FishingBot
     from .core.events import EventBus
+    from .remote.controller import BotController
 
     config.set("runtime.dry_run", True)
     bus = EventBus()
     bus.subscribe(lambda e: print(f"[{e.type}] {e.payload}")
                   if e.type in ("log", "state") else None)
-    bot = FishingBot(config, bus=bus)
-    try:
-        bot.start()
-        time.sleep(config.get("runtime.headless_seconds", 5))
-    except Exception as exc:
-        print(f"Headless capture baslatilamadi: {exc}\n"
+    controller = BotController(config, bus=bus)
+    telegram = None
+    if not controller.start():
+        print("Headless capture baslatilamadi.\n"
               "Bu mod ekranli bir makinede (oyun penceresi acikken) calisir.",
               file=sys.stderr)
         return 1
+    try:
+        if config.get("telegram.enabled", False):
+            from .remote.telegram import TelegramBridge
+
+            telegram = TelegramBridge(config, controller, bus=bus)
+            telegram.start()
+            print("Telegram köprüsü aktif; Ctrl+C ile çıkın.")
+            while True:
+                time.sleep(1)
+        else:
+            time.sleep(config.get("runtime.headless_seconds", 5))
+    except KeyboardInterrupt:
+        pass
     finally:
-        bot.stop()
+        if telegram:
+            telegram.stop()
+        controller.stop()
     return 0
 
 

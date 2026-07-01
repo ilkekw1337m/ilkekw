@@ -25,3 +25,8 @@ fish:
 chat_ai:
   enabled: false
   model: claude-opus-4-8
+
+telegram:
+  enabled: false
+  # token: ""                 # or set TELEGRAM_BOT_TOKEN env var
+  authorized_chat_ids: []     # e.g. [123456789]

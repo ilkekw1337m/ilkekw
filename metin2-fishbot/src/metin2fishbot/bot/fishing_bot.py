@@ -69,6 +69,12 @@ class FishingBot:
         self._paused = threading.Event()
         self.state = State.IDLE
 
+        # Minimal telemetry surfaced via status() and Telegram /status.
+        self.stats = {"casts": 0, "cycles": 0, "burns": 0,
+                      "captchas": 0, "started_at": None}
+        self._captcha_flagged = False  # avoid repeat captcha alerts
+        self.last_frame = None  # most recent grab, for remote screenshots
+
     # -- lifecycle ----------------------------------------------------------
     def start(self) -> None:
         if self._running:
@@ -79,8 +85,12 @@ class FishingBot:
                 title=self.cfg.get("window.title", "Metin2"),
             )
         self._load_state_templates()
+        self._load_bite_needle()
+        self._preflight_check()
         self._running = True
         self._paused.clear()
+        self._captcha_flagged = False
+        self.stats["started_at"] = time.time()
         self.guard.start()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -131,6 +141,61 @@ class FishingBot:
         self.bite_detector = BiteDetector(
             needle, threshold=self.cfg.get("fishing.match_threshold", 0.55))
 
+    def _load_bite_needle(self) -> None:
+        """Auto-load the strike marker template for the old fishing system."""
+        if self.bite_detector is not None:
+            return
+        try:
+            from ..core.config import resolve_path
+            import cv2
+
+            path = resolve_path(
+                self.cfg.get("templates.bite_needle", "assets/templates/strike.png"))
+            if path.exists():
+                img = cv2.imread(str(path), cv2.IMREAD_COLOR)
+                if img is not None:
+                    self.set_bite_needle(img)
+                    self.bus.log(f"bite template loaded: {path.name}")
+        except Exception as exc:
+            self.bus.log(f"bite template load skipped: {exc}", "debug")
+
+    def _preflight_check(self) -> list:
+        """Warn about missing regions/templates before running. Returns issues."""
+        system = self.cfg.get("fishing.system", "auto")
+        issues = []
+        if system in ("old", "auto") and self.bite_detector is None:
+            issues.append("eski sistem için strike şablonu yok (assets/templates/strike.png)")
+        if system in ("old", "auto") and not self._region("bite"):
+            issues.append("'bite' bölgesi kalibre edilmemiş")
+        if system in ("new", "auto"):
+            if not self._region("board"):
+                issues.append("'board' bölgesi kalibre edilmemiş")
+            if not (self._region("piece") or self._region("inventory")):
+                issues.append("'piece' bölgesi kalibre edilmemiş")
+        for issue in issues:
+            self.bus.log(f"preflight uyarısı: {issue}", "warning")
+        if issues:
+            self.bus.publish("preflight", issues=issues)
+        return issues
+
+    def status(self) -> dict:
+        """Snapshot of bot state + telemetry (for GUI and Telegram /status)."""
+        started = self.stats.get("started_at")
+        uptime = int(time.time() - started) if started else 0
+        return {
+            "running": self._running,
+            "paused": self.paused,
+            "state": self.state.value,
+            "system": self.cfg.get("fishing.system", "auto"),
+            "dry_run": self.dry_run,
+            "uptime_s": uptime,
+            "actions": self.guard.action_count,
+            "casts": self.stats["casts"],
+            "cycles": self.stats["cycles"],
+            "burns": self.stats["burns"],
+            "captchas": self.stats["captchas"],
+        }
+
     # -- helpers ------------------------------------------------------------
     def _region(self, name: str):
         return self.cfg.get(f"regions.{name}")
@@ -151,6 +216,7 @@ class FishingBot:
     def _do_cast(self) -> State:
         self.input.press_key(self.cfg.get("fishing.cast_hotkey", "1"))
         self.guard.record_action()
+        self.stats["casts"] += 1
         self.input.sleep(self.cfg.get("fishing.throw_time", 1.5))
         return State.WAIT
 
@@ -244,9 +310,45 @@ class FishingBot:
         if self.fish_manager is not None and self.cfg.get("fish.enabled", False):
             region = self._region("inventory")
             if region:
-                self.fish_manager.process_catch(
+                burned = self.fish_manager.process_catch(
                     self.capture.grab(), tuple(region))
+                self.stats["burns"] += int(burned or 0)
         return State.EQUIP_BAIT
+
+    def _check_captcha(self, frame: np.ndarray) -> bool:
+        """Detect a captcha; on first detection pause + alert. Requires a
+        calibrated captcha template (otherwise a no-op)."""
+        if self.state_detector.templates.get("captcha") is None:
+            return False
+        if self.state_detector.captcha_present(frame):
+            if not self._captcha_flagged:
+                self._captcha_flagged = True
+                self.stats["captchas"] += 1
+                self.pause()
+                self.bus.log("CAPTCHA algılandı — bot duraklatıldı", "warning")
+                self.bus.publish("captcha", frame=frame)
+                self._save_debug_frame(frame, "captcha")
+            return True
+        # Captcha cleared; allow future alerts and resume if we paused for it.
+        if self._captcha_flagged:
+            self._captcha_flagged = False
+            self.resume()
+            self.bus.log("captcha temizlendi — devam ediliyor")
+        return False
+
+    def _save_debug_frame(self, frame: np.ndarray, tag: str) -> None:
+        if not self.cfg.get("runtime.debug", False):
+            return
+        try:
+            from ..core.config import resolve_path
+            import cv2
+
+            debug_dir = resolve_path(self.cfg.get("runtime.debug_dir", "debug"))
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            path = debug_dir / f"{tag}_{int(time.time())}.png"
+            cv2.imwrite(str(path), frame)
+        except Exception:
+            pass
 
     # -- main loop ----------------------------------------------------------
     def _run(self) -> None:
@@ -261,6 +363,12 @@ class FishingBot:
             except Exception as exc:  # capture failure shouldn't crash the loop
                 self.bus.log(f"capture error: {exc}", "error")
                 self.input.sleep(1.0)
+                continue
+
+            self.last_frame = frame
+            self.stats["cycles"] += 1
+            if self._check_captcha(frame):
+                self.input.sleep(0.5)
                 continue
 
             self.bus.publish("state", state=self.state.value)

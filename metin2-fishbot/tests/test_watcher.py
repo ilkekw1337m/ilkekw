@@ -54,6 +54,17 @@ def test_pause_cb_called_around_send():
     assert events == [True, False]
 
 
+def test_handle_message_publishes_chat_incoming():
+    w = _make_watcher(_config(reply_cooldown=0))
+    published = []
+    w.bus.subscribe(lambda e: published.append(e.payload)
+                    if e.type == "chat_incoming" else None)
+    w.handle_message("GM: are you botting?")
+    assert published
+    assert published[0]["line"] == "GM: are you botting?"
+    assert published[0]["reply"] == "hey, busy fishing"
+
+
 def test_ready_false_without_key():
     cfg = _config()
     ic = InputController(dry_run=True)

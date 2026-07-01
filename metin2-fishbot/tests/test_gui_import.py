@@ -10,5 +10,8 @@ pytest.importorskip("customtkinter")
 
 
 def test_gui_modules_import():
-    from metin2fishbot.gui import app, calibration, chat_panel, fish_picker, widgets  # noqa: F401
+    from metin2fishbot.gui import (  # noqa: F401
+        app, calibration, chat_panel, fish_picker, telegram_panel, widgets,
+    )
     assert hasattr(app, "App")
+    assert hasattr(telegram_panel, "TelegramPanelTab")

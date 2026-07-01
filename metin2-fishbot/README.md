@@ -26,6 +26,11 @@ balıkları otomatik **yaktırabilir/atabilir** ve admin/şüpheli mesajlarına
   her balık için *tut/yaktır* seçimi; yapılandırılabilir imha eylemi.
 - **Sohbet AI aracı**: sohbet bölgesini OCR ile okur, GM/whisper mesajını
   algılar, Claude API ile kısa/insansı yanıt üretip yazar (opsiyonel, kapalı).
+- **Telegram uzaktan kontrol + bildirim**: telefondan `/start /stop /pause /resume
+  /status /screenshot /dryrun` komutları; captcha / GM mesajı / bot-durdu-hata
+  bildirimleri. Yalnız yetkili `chat_id`'ler komut verebilir (opsiyonel, kapalı).
+- **Captcha tespiti**: kalibre edilmiş captcha şablonu varsa bot duraklar ve
+  (Telegram açıksa) size ekran görüntüsüyle haber verir; siz çözüp `/resume` dersiniz.
 - **CustomTkinter GUI**: sekmeli arayüz + canlı log + sürükle-bırak kalibrasyon.
 
 ## Kurulum
@@ -89,8 +94,9 @@ src/metin2fishbot/
   fish/        catalog, recognizer, disposer, manager
   chat/        chat_detector(OCR), ai_responder(Claude), chat_writer, watcher
   bot/         state_machine, fishing_bot
+  remote/      controller (yaşam döngüsü), telegram (uzaktan kontrol/bildirim)
   safety/      guards (acil durdurma, limitler, molalar)
-  gui/         app, fish_picker, chat_panel, calibration, widgets
+  gui/         app, fish_picker, chat_panel, telegram_panel, calibration, widgets
 tools/         fetch_fish_images.py, template_capture.py
 tests/         pytest (solver, vision, fish, chat, bot)
 config/        default_config.yaml + profiles/
@@ -114,6 +120,32 @@ mesajı Claude API'ye gönderir ve oyuncu kimliğine bürünen kısa bir yanıt 
 Maliyet/aşırı kullanım için yanıt cooldown'u ve sayı limiti vardır; varsayılan
 olarak **kapalıdır** ve yalnızca siz API anahtarı sağlayıp etkinleştirirseniz
 çalışır.
+
+## Telegram Uzaktan Kontrol
+
+Botu telefonunuzdan izleyip yönetmek için:
+
+1. Telegram'da **@BotFather**'a `/newbot` yazıp bir bot oluşturun, verilen
+   **token**'ı alın.
+2. GUI → **Telegram** sekmesi: token'ı girin (veya `TELEGRAM_BOT_TOKEN` env
+   değişkenine koyun), etkinleştirin, **Uygula**.
+3. Oluşturduğunuz bota Telegram'dan `/start` yazın. Yetkili değilseniz bot size
+   `chat_id`'nizi döndürür; bu id'yi **Yetkili chat_id'ler** alanına ekleyip tekrar
+   **Uygula** deyin. (Yalnız bu id'ler komut verebilir — güvenlik için zorunlu.)
+4. Botu **Başlat**. Artık telefondan:
+   `/status` (durum+istatistik), `/screenshot`, `/pause`, `/resume`, `/stop`,
+   `/dryrun on|off`, `/help`.
+
+**Bildirimler:** captcha algılanınca (ekran görüntüsüyle), GM/whisper mesajı
+gelince (+AI yanıtı) ve bot durunca/hata olunca telefonunuza düşer. Hangi
+bildirimlerin gönderileceğini Telegram sekmesinden seçebilirsiniz.
+
+**GUI olmadan (headless):** `telegram.enabled: true` ve token/chat_id ayarlıyken
+`python -m metin2fishbot.main --no-gui` botu Telegram köprüsüyle başlatır; her şeyi
+telefondan yönetirsiniz.
+
+> Ağır bir kütüphane kullanılmaz — Telegram Bot HTTP API'si doğrudan `requests` ile
+> (long-polling) çağrılır.
 
 ## Testler
 

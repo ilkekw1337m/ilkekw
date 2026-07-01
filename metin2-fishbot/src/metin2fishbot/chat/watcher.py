@@ -97,6 +97,8 @@ class ChatWatcher:
                 self.pause_cb(False)
         self._last_reply_ts = time.time()
         self.reply_count += 1
+        # Surface the exchange so the Telegram bridge can forward it.
+        self.bus.publish("chat_incoming", line=line, reply=reply)
         return reply
 
     def _run(self) -> None:

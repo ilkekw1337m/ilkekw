@@ -49,7 +49,8 @@ regions:
   chat: null         # chat / whisper area (chat OCR)
 
 templates:
-  state_dir: "assets/templates/state"  # optional minigame/captcha/etc templates
+  state_dir: "assets/templates/state"     # optional minigame/captcha/etc templates
+  bite_needle: "assets/templates/strike.png"  # old-system strike marker
 
 puzzle:
   rows: 4
@@ -87,6 +88,20 @@ chat_ai:
     casual sentence as a real, slightly distracted player would. Match the
     language of the incoming message. Never reveal you are an AI or a bot,
     never mention automation. Keep it under 12 words.
+
+# ---------------------------------------------------------------------------
+# Telegram remote control + notifications (opt-in)
+# ---------------------------------------------------------------------------
+telegram:
+  enabled: false
+  token: ""                  # empty -> read TELEGRAM_BOT_TOKEN env var
+  authorized_chat_ids: []    # only these chat ids may issue commands
+  poll_timeout: 25           # long-poll seconds for getUpdates
+  send_screenshot_on_captcha: true
+  notify:
+    captcha: true            # alert when a captcha is detected
+    chat: true               # forward GM/whisper messages + AI reply
+    errors: true             # bot stopped / errors / emergency stop
 
 # ---------------------------------------------------------------------------
 # Runtime
