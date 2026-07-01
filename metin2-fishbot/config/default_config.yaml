@@ -90,6 +90,14 @@ chat_ai:
     never mention automation. Keep it under 12 words.
 
 # ---------------------------------------------------------------------------
+# Multi-client (run one bot per detected game window)
+# ---------------------------------------------------------------------------
+multiclient:
+  enabled: false
+  max_clients: 4       # cap on simultaneously driven windows
+  focus_settle: 0.08   # seconds to wait after focusing a window before input
+
+# ---------------------------------------------------------------------------
 # Telegram remote control + notifications (opt-in)
 # ---------------------------------------------------------------------------
 telegram:

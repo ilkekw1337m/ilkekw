@@ -29,6 +29,9 @@ balıkları otomatik **yaktırabilir/atabilir** ve admin/şüpheli mesajlarına
 - **Telegram uzaktan kontrol + bildirim**: telefondan `/start /stop /pause /resume
   /status /screenshot /dryrun` komutları; captcha / GM mesajı / bot-durdu-hata
   bildirimleri. Yalnız yetkili `chat_id`'ler komut verebilir (opsiyonel, kapalı).
+- **Çoklu istemci**: açık tüm "Metin2" pencerelerini otomatik bulur, her biri için
+  ayrı bir bot çalıştırır; tek sistem faresini **paylaşımlı kilitle** sıraya sokar
+  (aynı anda yalnız bir istemci tıklar, tıktan önce ilgili pencere öne getirilir).
 - **Captcha tespiti**: kalibre edilmiş captcha şablonu varsa bot duraklar ve
   (Telegram açıksa) size ekran görüntüsüyle haber verir; siz çözüp `/resume` dersiniz.
 - **CustomTkinter GUI**: sekmeli arayüz + canlı log + sürükle-bırak kalibrasyon.
@@ -88,7 +91,7 @@ python -m metin2fishbot.main --no-gui
 
 ```
 src/metin2fishbot/
-  core/        capture, input_controller, vision, config, events
+  core/        capture, input_controller, vision, config, events, window
   detection/   bite_detector, puzzle_detector, state_detector
   solver/      pieces, puzzle_solver  (greedy jigsaw çözücü)
   fish/        catalog, recognizer, disposer, manager
@@ -146,6 +149,30 @@ telefondan yönetirsiniz.
 
 > Ağır bir kütüphane kullanılmaz — Telegram Bot HTTP API'si doğrudan `requests` ile
 > (long-polling) çağrılır.
+
+## Çoklu İstemci (Multi-Client)
+
+Aynı anda birden fazla Metin2 penceresinde balık tutmak için:
+
+1. Oyunun birden fazla örneğini (client) açın; hepsi pencereli ve aynı çözünürlükte
+   olsun (kalibrasyon tüm istemcilerde aynı bölgeleri varsayar).
+2. GUI → **Balık** sekmesi → **Çoklu istemci** anahtarını açın, **Başlat**.
+3. Bot, başlığında "Metin2" geçen tüm görünür pencereleri bulur (en fazla
+   `multiclient.max_clients`), her biri için ayrı bir örnek çalıştırır.
+
+**Nasıl çalışır:** Windows'ta her pencere kendi `hwnd`'siyle ayrı ayrı yakalanır
+(`BitBlt` arka plandaki pencereyi de okur). Tek sistem faresi/klavyesi
+**paylaşımlı bir kilitle (broker)** sıraya sokulur: bir istemci girdi göndereceği
+zaman kilidi alır, ilgili pencereyi öne getirir (`SetForegroundWindow`), kısa bir
+`focus_settle` bekler, tıklar/yazar, kilidi bırakır. Böylece istemciler birbirinin
+tıklamasını bozmaz.
+
+**Telegram ile:** çoklu istemcide komutlara istemci numarası ekleyebilirsiniz —
+`/pause 2`, `/resume 1`, `/screenshot 3`. `/status` tüm istemcileri listeler.
+Argümansız `/pause` hepsini duraklatır.
+
+> Not: Çoklu istemci Windows'a özgüdür (pencere numaralandırma + odak). Linux/başsız
+> ortamda pencere bulunamazsa bot tek istemciye düşer.
 
 ## Testler
 

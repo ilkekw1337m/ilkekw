@@ -26,20 +26,49 @@ def _load_backend():
         return None
 
 
+class InputBroker:
+    """Shared arbitration for the single system mouse/keyboard across clients.
+
+    In multi-client mode every client's InputController shares one broker so
+    only one client sends input at a time; ``focus_settle`` is the pause after a
+    window is brought to the foreground before input is delivered to it.
+    """
+
+    def __init__(self, focus_settle: float = 0.08):
+        self.lock = threading.RLock()
+        self.focus_settle = focus_settle
+
+
 class InputController:
     def __init__(self, bus: Optional[EventBus] = None, dry_run: bool = True,
-                 delay_jitter: float = 0.15, click_radius: int = 4):
+                 delay_jitter: float = 0.15, click_radius: int = 4,
+                 broker: Optional[InputBroker] = None, focus_fn=None):
         self.bus = bus
         self.dry_run = dry_run
         self.delay_jitter = delay_jitter
         self.click_radius = click_radius
         # Serializes actions so the fishing loop and the chat watcher (separate
         # threads sharing one controller) never interleave a click with typing.
-        self.lock = threading.RLock()
+        # A shared broker extends that serialization across multiple clients.
+        self.broker = broker
+        self.lock = broker.lock if broker else threading.RLock()
+        self.focus_fn = focus_fn
+        self._focus_settle = broker.focus_settle if broker else 0.0
         self._backend = None if dry_run else _load_backend()
         if not dry_run and self._backend is None:
             self.dry_run = True  # no backend -> degrade to logging
             self._log("pydirectinput unavailable; forcing dry-run input")
+
+    def _focus(self) -> None:
+        """Bring the target window forward before delivering input (multi-client)."""
+        if self.focus_fn is None:
+            return
+        try:
+            self.focus_fn()
+            if self._focus_settle:
+                time.sleep(self._focus_settle)
+        except Exception:
+            pass
 
     # -- internals ----------------------------------------------------------
     def _log(self, message: str) -> None:
@@ -63,12 +92,14 @@ class InputController:
     # -- public actions -----------------------------------------------------
     def press_key(self, key: str) -> None:
         with self.lock:
+            self._focus()
             self._log(f"key: {key}")
             if not self.dry_run and self._backend:
                 self._backend.press(key)
 
     def click(self, x: int, y: int, button: str = "left") -> None:
         with self.lock:
+            self._focus()
             jx, jy = self._radius_offset(x, y)
             self._log(f"click {button} @ ({jx},{jy})")
             if not self.dry_run and self._backend:
@@ -79,6 +110,7 @@ class InputController:
 
     def move_to(self, x: int, y: int) -> None:
         with self.lock:
+            self._focus()
             jx, jy = self._radius_offset(x, y)
             self._log(f"move @ ({jx},{jy})")
             if not self.dry_run and self._backend:
@@ -86,6 +118,7 @@ class InputController:
 
     def drag(self, sx: int, sy: int, dx: int, dy: int) -> None:
         with self.lock:
+            self._focus()
             self._log(f"drag ({sx},{sy}) -> ({dx},{dy})")
             if not self.dry_run and self._backend:
                 self._backend.moveTo(sx, sy)
@@ -93,6 +126,7 @@ class InputController:
 
     def type_text(self, text: str, per_char: float = 0.05) -> None:
         with self.lock:
+            self._focus()
             self._log(f"type: {text!r}")
             if self.dry_run or not self._backend:
                 return

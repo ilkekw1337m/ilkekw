@@ -34,6 +34,10 @@ class Capture:
         ox, oy = self.origin
         return ox + x, oy + y
 
+    def focus(self) -> None:  # pragma: no cover - default no-op
+        """Bring the target window forward (used by the multi-client broker)."""
+        pass
+
     def close(self) -> None:  # pragma: no cover - default no-op
         pass
 
@@ -78,18 +82,22 @@ class Win32Capture(Capture):
     BORDER_PIXELS = 8
     TITLEBAR_PIXELS = 30
 
-    def __init__(self, title: str):
+    def __init__(self, title: Optional[str] = None, hwnd: Optional[int] = None):
         import win32con  # noqa: F401  (validates availability)
         import win32gui
         import win32ui
 
         self._win32gui = win32gui
         self._win32ui = win32ui
+        self._win32con = win32con
 
-        self.hwnd = win32gui.FindWindow(None, title)
-        if not self.hwnd:
-            # Fall back to a substring search over visible top-level windows.
-            self.hwnd = self._find_by_substring(title)
+        if hwnd:  # explicit window (multi-client): use it directly
+            self.hwnd = hwnd
+        else:
+            self.hwnd = win32gui.FindWindow(None, title)
+            if not self.hwnd:
+                # Fall back to a substring search over visible top-level windows.
+                self.hwnd = self._find_by_substring(title or "")
         if not self.hwnd:
             raise RuntimeError(f"window not found: {title!r}")
 
@@ -99,6 +107,14 @@ class Win32Capture(Capture):
         self.cropped_x = self.BORDER_PIXELS
         self.cropped_y = self.TITLEBAR_PIXELS
         self.origin = (left + self.cropped_x, top + self.cropped_y)
+
+    def focus(self) -> None:
+        """Bring this window to the foreground before input is sent to it."""
+        try:
+            self._win32gui.ShowWindow(self.hwnd, self._win32con.SW_RESTORE)
+            self._win32gui.SetForegroundWindow(self.hwnd)
+        except Exception:
+            pass  # focus can transiently fail; input broker still serializes
 
     def _find_by_substring(self, needle: str) -> int:
         needle_low = needle.lower()
@@ -138,14 +154,18 @@ class Win32Capture(Capture):
 
 
 def create_capture(backend: str, title: str = "Metin2",
-                   region: Optional[Tuple[int, int, int, int]] = None) -> Capture:
-    """Factory: pick a backend. ``auto`` -> win32 on Windows, mss elsewhere."""
+                   region: Optional[Tuple[int, int, int, int]] = None,
+                   hwnd: Optional[int] = None) -> Capture:
+    """Factory: pick a backend. ``auto`` -> win32 on Windows, mss elsewhere.
+
+    Pass ``hwnd`` to bind a Win32 capture to one specific window (multi-client).
+    """
     chosen = backend
     if backend == "auto":
         chosen = "win32" if platform.system() == "Windows" else "mss"
 
     if chosen == "win32":
-        return Win32Capture(title)
+        return Win32Capture(title=title, hwnd=hwnd)
     if chosen == "mss":
         return MssCapture(region=region)
     raise ValueError(f"unknown capture backend: {backend!r}")

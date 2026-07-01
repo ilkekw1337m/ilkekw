@@ -39,13 +39,15 @@ def run_headless(config):
     import time
 
     from .core.events import EventBus
-    from .remote.controller import BotController
+    from .remote.controller import BotController, MultiController
 
     config.set("runtime.dry_run", True)
     bus = EventBus()
     bus.subscribe(lambda e: print(f"[{e.type}] {e.payload}")
                   if e.type in ("log", "state") else None)
-    controller = BotController(config, bus=bus)
+    controller = (MultiController(config, bus=bus)
+                  if config.get("multiclient.enabled", False)
+                  else BotController(config, bus=bus))
     telegram = None
     if not controller.start():
         print("Headless capture baslatilamadi.\n"

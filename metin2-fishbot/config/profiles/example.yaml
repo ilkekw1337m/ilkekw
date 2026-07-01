@@ -30,3 +30,7 @@ telegram:
   enabled: false
   # token: ""                 # or set TELEGRAM_BOT_TOKEN env var
   authorized_chat_ids: []     # e.g. [123456789]
+
+multiclient:
+  enabled: false              # run one bot per detected "Metin2" window
+  max_clients: 4

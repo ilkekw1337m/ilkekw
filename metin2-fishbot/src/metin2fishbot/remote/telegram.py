@@ -20,13 +20,13 @@ from ..core.events import Event, EventBus
 from .controller import BotController
 
 HELP_TEXT = (
-    "Komutlar:\n"
+    "Komutlar (çoklu istemcide sona istemci no ekleyin, örn: /pause 2):\n"
     "/start - botu başlat\n"
     "/stop - botu durdur\n"
-    "/pause - duraklat\n"
-    "/resume - devam et\n"
-    "/status - durum + istatistik\n"
-    "/screenshot - anlık ekran görüntüsü\n"
+    "/pause [n] - duraklat (tümü ya da #n)\n"
+    "/resume [n] - devam et (tümü ya da #n)\n"
+    "/status [n] - durum + istatistik\n"
+    "/screenshot [n] - anlık ekran görüntüsü\n"
     "/dryrun on|off - kuru çalışma modu\n"
     "/help - bu yardım"
 )
@@ -111,6 +111,8 @@ class TelegramBridge:
         parts = text.strip().split()
         cmd = parts[0].lower().lstrip("/").split("@")[0] if parts else ""
         arg = parts[1].lower() if len(parts) > 1 else ""
+        # Optional 1-based client index for multi-client (e.g. "/pause 2").
+        index = int(arg) if arg.isdigit() else None
 
         if cmd == "start":
             return "başlatıldı" if self.controller.start() else "başlatılamadı"
@@ -118,18 +120,19 @@ class TelegramBridge:
             self.controller.stop()
             return "durduruldu"
         if cmd == "pause":
-            self.controller.pause()
-            return "duraklatıldı"
+            self.controller.pause(index=index)
+            return f"duraklatıldı{f' (#{index})' if index else ''}"
         if cmd == "resume":
-            self.controller.resume()
-            return "devam ediliyor"
+            self.controller.resume(index=index)
+            return f"devam ediliyor{f' (#{index})' if index else ''}"
         if cmd == "status":
-            return self._format_status(self.controller.status())
+            return self._format_status(self.controller.status(index=index))
         if cmd == "screenshot":
-            frame = self.controller.screenshot()
+            frame = self.controller.screenshot(index=index)
             if frame is None:
                 return "ekran görüntüsü alınamadı"
-            self.send_photo(frame, caption="ekran görüntüsü", chat_id=chat_id)
+            self.send_photo(frame, caption=f"ekran görüntüsü{f' #{index}' if index else ''}",
+                            chat_id=chat_id)
             return ""  # photo sent separately
         if cmd == "dryrun":
             if arg in ("on", "off"):
@@ -140,8 +143,20 @@ class TelegramBridge:
             return HELP_TEXT
         return f"bilinmeyen komut: {cmd}\n{HELP_TEXT}"
 
+    @classmethod
+    def _format_status(cls, s) -> str:
+        # Multi-client: a list of per-client status dicts.
+        if isinstance(s, list):
+            if not s:
+                return "durum: istemci yok"
+            return "\n\n".join(
+                f"#{item.get('index', i + 1)} [{item.get('label', '')}]\n"
+                + cls._format_one(item)
+                for i, item in enumerate(s))
+        return cls._format_one(s)
+
     @staticmethod
-    def _format_status(s: dict) -> str:
+    def _format_one(s: dict) -> str:
         if not s.get("running"):
             return "durum: durdu"
         return (
@@ -234,8 +249,9 @@ class TelegramBridge:
             if event.type == "captcha" and self.notify.get("captcha", True):
                 frame = (event.payload.get("frame")
                          if self.send_shot_on_captcha else None)
+                client = event.payload.get("client", "")
                 self._notify(
-                    "⚠️ CAPTCHA algılandı — bot duraklatıldı. "
+                    f"⚠️ CAPTCHA algılandı ({client}) — bot duraklatıldı. "
                     "Çözdükten sonra /resume gönderin.",
                     frame=frame, caption="captcha")
             elif event.type == "chat_incoming" and self.notify.get("chat", True):

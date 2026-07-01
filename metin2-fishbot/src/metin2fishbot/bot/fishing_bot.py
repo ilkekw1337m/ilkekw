@@ -30,10 +30,11 @@ class FishingBot:
     def __init__(self, config: Config, bus: Optional[EventBus] = None,
                  capture: Optional[Capture] = None,
                  input_controller: Optional[InputController] = None,
-                 fish_manager=None):
+                 fish_manager=None, client_label: str = "client"):
         self.cfg = config
         self.bus = bus or EventBus()
         self.dry_run = bool(config.get("runtime.dry_run", True))
+        self.client_label = client_label
 
         self.capture = capture
         self.input = input_controller or InputController(
@@ -325,8 +326,11 @@ class FishingBot:
                 self._captcha_flagged = True
                 self.stats["captchas"] += 1
                 self.pause()
-                self.bus.log("CAPTCHA algılandı — bot duraklatıldı", "warning")
-                self.bus.publish("captcha", frame=frame)
+                self.bus.log(
+                    f"CAPTCHA algılandı ({self.client_label}) — duraklatıldı",
+                    "warning")
+                self.bus.publish("captcha", frame=frame,
+                                 client=self.client_label)
                 self._save_debug_frame(frame, "captcha")
             return True
         # Captcha cleared; allow future alerts and resume if we paused for it.

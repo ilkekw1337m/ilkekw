@@ -16,18 +16,18 @@ class FakeController:
     def stop(self):
         self.calls.append("stop")
 
-    def pause(self):
-        self.calls.append("pause")
+    def pause(self, index=None):
+        self.calls.append(("pause", index))
 
-    def resume(self):
-        self.calls.append("resume")
+    def resume(self, index=None):
+        self.calls.append(("resume", index))
 
-    def status(self):
+    def status(self, index=None):
         return {"running": True, "state": "cast", "system": "auto",
                 "dry_run": True, "uptime_s": 10, "actions": 3, "casts": 2,
                 "burns": 1, "captchas": 0}
 
-    def screenshot(self):
+    def screenshot(self, index=None):
         return np.zeros((10, 10, 3), np.uint8)
 
 
@@ -54,7 +54,14 @@ def test_authorized_commands_dispatch():
     assert bridge.handle_command("/pause", 111) == "duraklatıldı"
     assert bridge.handle_command("/resume", 111) == "devam ediliyor"
     assert bridge.handle_command("/stop", 111) == "durduruldu"
-    assert ctrl.calls == ["start", "pause", "resume", "stop"]
+    assert ctrl.calls == ["start", ("pause", None), ("resume", None), "stop"]
+
+
+def test_command_with_client_index():
+    bridge, ctrl = _bridge()
+    assert bridge.handle_command("/pause 2", 111) == "duraklatıldı (#2)"
+    assert bridge.handle_command("/resume 3", 111) == "devam ediliyor (#3)"
+    assert ctrl.calls == [("pause", 2), ("resume", 3)]
 
 
 def test_status_command_formats():
@@ -99,7 +106,7 @@ def test_handle_update_advances_offset_and_dispatches(monkeypatch):
               "message": {"chat": {"id": 111}, "text": "/pause"}}
     bridge._handle_update(update)
     assert bridge._offset == 43
-    assert ctrl.calls == ["pause"]
+    assert ctrl.calls == [("pause", None)]
     assert sent and sent[0][1] == 111
 
 

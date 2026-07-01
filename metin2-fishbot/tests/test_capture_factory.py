@@ -18,13 +18,15 @@ def test_auto_selects_win32_on_windows(monkeypatch):
     created = {}
 
     class FakeWin32:
-        def __init__(self, title):
+        def __init__(self, title=None, hwnd=None):
             created["title"] = title
+            created["hwnd"] = hwnd
 
     monkeypatch.setattr(capture, "Win32Capture", FakeWin32)
-    cap = capture.create_capture("auto", title="MyGame")
+    cap = capture.create_capture("auto", title="MyGame", hwnd=77)
     assert isinstance(cap, FakeWin32)
     assert created["title"] == "MyGame"
+    assert created["hwnd"] == 77
 
 
 def test_auto_selects_mss_off_windows(monkeypatch):

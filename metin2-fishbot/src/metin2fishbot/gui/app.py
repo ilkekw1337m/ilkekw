@@ -12,7 +12,7 @@ import customtkinter as ctk
 from ..core.capture import create_capture
 from ..core.config import Config, save_profile
 from ..core.events import Event, EventBus
-from ..remote.controller import BotController
+from ..remote.controller import BotController, MultiController
 from .calibration import CalibrationTab
 from .chat_panel import ChatPanelTab
 from .fish_picker import FishPickerTab
@@ -27,7 +27,7 @@ class App(ctk.CTk):
         super().__init__()
         self.config_obj = config
         self.bus = EventBus()
-        self.controller = BotController(config, bus=self.bus)
+        self.controller = None  # built on start (single or multi)
         self.telegram = None
 
         self.title("Metin2 Balık Botu")
@@ -81,6 +81,11 @@ class App(ctk.CTk):
             value=self.config_obj.get("fish.enabled", False))
         ctk.CTkSwitch(parent, text="Balık yaktırma etkin",
                       variable=self.fish_enable).pack(anchor="w", padx=12, pady=4)
+        self.multi_var = ctk.BooleanVar(
+            value=self.config_obj.get("multiclient.enabled", False))
+        ctk.CTkSwitch(parent,
+                      text="Çoklu istemci (tespit edilen tüm pencereler)",
+                      variable=self.multi_var).pack(anchor="w", padx=12, pady=4)
 
         btns = ctk.CTkFrame(parent, fg_color="transparent")
         btns.pack(fill="x", padx=12, pady=10)
@@ -151,12 +156,19 @@ class App(ctk.CTk):
         self.config_obj.set("fishing.system", self.system_var.get())
         self.config_obj.set("runtime.dry_run", bool(self.dry_var.get()))
         self.config_obj.set("fish.enabled", bool(self.fish_enable.get()))
+        self.config_obj.set("multiclient.enabled", bool(self.multi_var.get()))
         self.chat_tab.apply()
         self.telegram_tab.apply()
         self.calib_tab.apply()
 
-        # Controller centralizes input/capture/fish/chat wiring.
-        self.controller.api_key = self.chat_tab.get_api_key() or None
+        # Single vs multi-client controller (same verb surface).
+        api_key = self.chat_tab.get_api_key() or None
+        if self.config_obj.get("multiclient.enabled", False):
+            self.controller = MultiController(self.config_obj, bus=self.bus,
+                                              api_key=api_key)
+        else:
+            self.controller = BotController(self.config_obj, bus=self.bus,
+                                            api_key=api_key)
         if not self.controller.start():
             self._log_ui("başlatılamadı (pencere bulunamadı?)")
             return
@@ -178,7 +190,8 @@ class App(ctk.CTk):
         if self.telegram:
             self.telegram.stop()
             self.telegram = None
-        self.controller.stop()
+        if self.controller:
+            self.controller.stop()
         self.start_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
         self._log_ui("bot durduruldu")
