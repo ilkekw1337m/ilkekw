@@ -78,3 +78,32 @@ def test_chat_writer_dry_run_logs(capsys):
     writer = ChatWriter(ic)
     # Should not raise and should send no real input in dry-run.
     writer.send("hello there")
+
+
+def test_clean_reply_single_line_and_unquoted():
+    assert AIResponder.clean_reply('"hey there"') == "hey there"
+    assert AIResponder.clean_reply("line one\nline two") == "line one line two"
+    assert AIResponder.clean_reply("  spaced   out  ") == "spaced out"
+
+
+def test_clean_reply_caps_length():
+    long = "x" * 500
+    assert len(AIResponder.clean_reply(long, max_chars=50)) == 50
+
+
+def test_reply_applies_cleaning():
+    class _Block:
+        type = "text"
+        text = '"just fishing, bro"\n'
+
+    class _Resp:
+        content = [_Block()]
+
+    class _Client:
+        class messages:
+            @staticmethod
+            def create(**kwargs):
+                return _Resp()
+
+    r = AIResponder(system_prompt="x", client=_Client())
+    assert r.reply("hi") == "just fishing, bro"

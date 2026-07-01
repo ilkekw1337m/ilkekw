@@ -61,3 +61,26 @@ def test_solver_prefers_tight_packing():
     board, choices = solve_sequence(2, 4, [1, 1])
     assert is_complete(board)
     assert all(c is not None for c in choices)
+
+
+def test_fill_full_4x6_with_squares():
+    # 4x6 = 24 cells; six 2x2 squares (id 1) fill it exactly.
+    board, choices = solve_sequence(4, 6, [1] * 6)
+    assert is_complete(board)
+    assert all(c is not None for c in choices)
+
+
+def test_discard_piece_too_big_for_remaining_space():
+    # A 1x4 board with one empty cell can't take the 4-long line -> discard.
+    board = [[1, 0, 1, 1]]
+    from metin2fishbot.solver.puzzle_solver import best_placement
+    assert best_placement(board, 2) is None
+    # ...but a single-cell piece fits.
+    assert best_placement(board, 6) is not None
+
+
+def test_apply_placement_does_not_mutate_input():
+    board = new_board(2, 2)
+    out = apply_placement(board, [(0, 0)])
+    assert board[0][0] == 0   # original untouched
+    assert out[0][0] == 1

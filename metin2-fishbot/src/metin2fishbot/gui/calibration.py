@@ -11,7 +11,7 @@ from typing import Callable, Optional, Tuple
 
 import customtkinter as ctk
 
-REGION_NAMES = ["board", "bite", "inventory", "chat"]
+REGION_NAMES = ["board", "bite", "piece", "inventory", "chat"]
 
 
 class RegionPicker(ctk.CTkToplevel):
@@ -34,12 +34,11 @@ class RegionPicker(ctk.CTkToplevel):
         self.geometry(f"{w}x{h}+0+0")
         self.attributes("-topmost", True)
 
-        self._image = ctk.CTkImage(light_image=self._pil, size=(w, h))
         self.canvas = ctk.CTkCanvas(self, width=w, height=h,
                                     highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
-        self._tkimg = self._pil
-        # Use a plain Tk PhotoImage via Pillow for the canvas background.
+        # A plain Tk PhotoImage (via Pillow) is used for the canvas background;
+        # CTkImage can't be drawn onto a raw canvas.
         from PIL import ImageTk
 
         self._photo = ImageTk.PhotoImage(self._pil)

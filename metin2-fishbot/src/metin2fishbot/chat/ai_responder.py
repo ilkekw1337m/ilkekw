@@ -52,7 +52,22 @@ class AIResponder:
             )
         except Exception:
             return None
-        return self._extract_text(response)
+        text = self._extract_text(response)
+        return self.clean_reply(text) if text else None
+
+    @staticmethod
+    def clean_reply(text: str, max_chars: int = 200) -> str:
+        """Make a model reply chat-safe: single line, unquoted, length-capped.
+
+        The in-game chat box is single-line, so collapse newlines, strip
+        surrounding quotes the model sometimes adds, and trim length.
+        """
+        one_line = " ".join(text.split())
+        if len(one_line) >= 2 and one_line[0] in "\"'" and one_line[-1] == one_line[0]:
+            one_line = one_line[1:-1].strip()
+        if len(one_line) > max_chars:
+            one_line = one_line[:max_chars].rstrip()
+        return one_line
 
     @staticmethod
     def _extract_text(response) -> Optional[str]:

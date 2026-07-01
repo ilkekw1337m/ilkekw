@@ -1,12 +1,15 @@
 """Entry point: launch the GUI.
 
-Run with::
+Run with (``src/`` must be on ``PYTHONPATH``, or install with ``pip install -e .``)::
 
-    python -m metin2fishbot.main            # from the src/ directory on sys.path
-    python src/metin2fishbot/main.py        # convenience
+    PYTHONPATH=src python -m metin2fishbot.main
+    # or, after `pip install -e .`:
+    python -m metin2fishbot.main
 
 Use ``--profile NAME`` to overlay a calibration profile, or ``--no-gui`` to run
 a headless dry-run loop (useful for debugging detection without a UI).
+Running the file directly (``python main.py``) will not work — the package uses
+relative imports and must be launched as a module.
 """
 from __future__ import annotations
 

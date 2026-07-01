@@ -9,6 +9,7 @@ instead of sending them — so the whole pipeline runs on Linux for testing.
 from __future__ import annotations
 
 import random
+import threading
 import time
 from typing import Optional, Tuple
 
@@ -32,6 +33,9 @@ class InputController:
         self.dry_run = dry_run
         self.delay_jitter = delay_jitter
         self.click_radius = click_radius
+        # Serializes actions so the fishing loop and the chat watcher (separate
+        # threads sharing one controller) never interleave a click with typing.
+        self.lock = threading.RLock()
         self._backend = None if dry_run else _load_backend()
         if not dry_run and self._backend is None:
             self.dry_run = True  # no backend -> degrade to logging
@@ -58,38 +62,43 @@ class InputController:
 
     # -- public actions -----------------------------------------------------
     def press_key(self, key: str) -> None:
-        self._log(f"key: {key}")
-        if not self.dry_run and self._backend:
-            self._backend.press(key)
+        with self.lock:
+            self._log(f"key: {key}")
+            if not self.dry_run and self._backend:
+                self._backend.press(key)
 
     def click(self, x: int, y: int, button: str = "left") -> None:
-        jx, jy = self._radius_offset(x, y)
-        self._log(f"click {button} @ ({jx},{jy})")
-        if not self.dry_run and self._backend:
-            self._backend.click(jx, jy, button=button)
+        with self.lock:
+            jx, jy = self._radius_offset(x, y)
+            self._log(f"click {button} @ ({jx},{jy})")
+            if not self.dry_run and self._backend:
+                self._backend.click(jx, jy, button=button)
 
     def right_click(self, x: int, y: int) -> None:
         self.click(x, y, button="right")
 
     def move_to(self, x: int, y: int) -> None:
-        jx, jy = self._radius_offset(x, y)
-        self._log(f"move @ ({jx},{jy})")
-        if not self.dry_run and self._backend:
-            self._backend.moveTo(jx, jy)
+        with self.lock:
+            jx, jy = self._radius_offset(x, y)
+            self._log(f"move @ ({jx},{jy})")
+            if not self.dry_run and self._backend:
+                self._backend.moveTo(jx, jy)
 
     def drag(self, sx: int, sy: int, dx: int, dy: int) -> None:
-        self._log(f"drag ({sx},{sy}) -> ({dx},{dy})")
-        if not self.dry_run and self._backend:
-            self._backend.moveTo(sx, sy)
-            self._backend.dragTo(dx, dy, button="left")
+        with self.lock:
+            self._log(f"drag ({sx},{sy}) -> ({dx},{dy})")
+            if not self.dry_run and self._backend:
+                self._backend.moveTo(sx, sy)
+                self._backend.dragTo(dx, dy, button="left")
 
     def type_text(self, text: str, per_char: float = 0.05) -> None:
-        self._log(f"type: {text!r}")
-        if self.dry_run or not self._backend:
-            return
-        for ch in text:
-            self._backend.typewrite(ch)
-            time.sleep(self._jitter(per_char))
+        with self.lock:
+            self._log(f"type: {text!r}")
+            if self.dry_run or not self._backend:
+                return
+            for ch in text:
+                self._backend.typewrite(ch)
+                time.sleep(self._jitter(per_char))
 
     def press_enter(self) -> None:
         self.press_key("enter")

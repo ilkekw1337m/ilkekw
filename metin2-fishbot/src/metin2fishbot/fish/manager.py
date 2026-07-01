@@ -5,7 +5,7 @@ marked ``burn``. Wired into the bot's LOOT state.
 """
 from __future__ import annotations
 
-from typing import Callable, Optional, Tuple
+from typing import Tuple
 
 import numpy as np
 
@@ -25,8 +25,7 @@ class FishManager:
         self.input = input_controller
 
     def process_catch(self, frame: np.ndarray,
-                      inventory_region: Tuple[int, int, int, int],
-                      click_fn: Optional[Callable] = None) -> int:
+                      inventory_region: Tuple[int, int, int, int]) -> int:
         """Scan the inventory region; burn fish marked for disposal.
 
         Returns the number of fish disposed (or, in dry-run, would-dispose).
@@ -40,8 +39,7 @@ class FishManager:
                 cx = x + match.center[0]
                 cy = y + match.center[1]
                 self.disposer.dispose(name, (cx, cy),
-                                      input_controller=self.input,
-                                      click_fn=click_fn)
+                                      input_controller=self.input)
                 burned += 1
             elif self.bus:
                 self.bus.log(f"keep {name}", level="debug")

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 
@@ -18,7 +18,7 @@ from ..core.capture import Capture, create_capture
 from ..core.config import Config
 from ..core.events import EventBus
 from ..core.input_controller import InputController
-from ..detection.bite_detector import FISH_RANGE, BiteDetector
+from ..detection.bite_detector import BiteDetector
 from ..detection.puzzle_detector import PuzzleDetector
 from ..detection.state_detector import StateDetector
 from ..safety.guards import SafetyGuard
@@ -57,11 +57,16 @@ class FishingBot:
             rows=config.get("puzzle.rows", 4),
             cols=config.get("puzzle.cols", 6),
         )
-        self.state_detector = StateDetector()
+        # State templates (minigame clock, captcha, inventory) loaded lazily from
+        # assets/templates/state/ at start(); empty until then.
+        self.state_detector = StateDetector(
+            threshold=config.get("fishing.match_threshold", 0.6))
         self.bite_detector: Optional[BiteDetector] = None  # set when a needle exists
 
         self._thread: Optional[threading.Thread] = None
         self._running = False
+        # Not set => running. Set => paused (e.g. while the chat AI types a reply).
+        self._paused = threading.Event()
         self.state = State.IDLE
 
     # -- lifecycle ----------------------------------------------------------
@@ -73,7 +78,9 @@ class FishingBot:
                 self.cfg.get("window.backend", "auto"),
                 title=self.cfg.get("window.title", "Metin2"),
             )
+        self._load_state_templates()
         self._running = True
+        self._paused.clear()
         self.guard.start()
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -81,10 +88,44 @@ class FishingBot:
 
     def stop(self) -> None:
         self._running = False
+        self._paused.clear()
         self.guard.stop()
         if self._thread:
             self._thread.join(timeout=5)
         self.bus.publish("bot_stopped")
+
+    def pause(self) -> None:
+        """Pause the fishing loop (used while the chat AI types a reply)."""
+        self._paused.set()
+        self.bus.publish("paused")
+
+    def resume(self) -> None:
+        self._paused.clear()
+        self.bus.publish("resumed")
+
+    @property
+    def paused(self) -> bool:
+        return self._paused.is_set()
+
+    def _wait_if_paused(self) -> None:
+        while self._paused.is_set() and self._running:
+            time.sleep(0.05)
+
+    def _load_state_templates(self) -> None:
+        """Load optional state templates from assets/templates/state/."""
+        try:
+            from ..core.config import resolve_path
+
+            state_dir = resolve_path(
+                self.cfg.get("templates.state_dir", "assets/templates/state"))
+            loaded = StateDetector.from_dir(
+                state_dir, threshold=self.cfg.get("fishing.match_threshold", 0.6))
+            if loaded.templates:
+                self.state_detector.templates.update(loaded.templates)
+                self.bus.log(
+                    f"state templates loaded: {list(loaded.templates)}")
+        except Exception as exc:
+            self.bus.log(f"state template load skipped: {exc}", "debug")
 
     def set_bite_needle(self, needle: np.ndarray) -> None:
         self.bite_detector = BiteDetector(
@@ -104,10 +145,12 @@ class FishingBot:
     def _do_equip_bait(self) -> State:
         self.input.sleep(self.cfg.get("fishing.bait_time", 1.0))
         self.input.press_key(self.cfg.get("fishing.bait_hotkey", "2"))
+        self.guard.record_action()
         return State.CAST
 
     def _do_cast(self) -> State:
         self.input.press_key(self.cfg.get("fishing.cast_hotkey", "1"))
+        self.guard.record_action()
         self.input.sleep(self.cfg.get("fishing.throw_time", 1.5))
         return State.WAIT
 
@@ -117,7 +160,11 @@ class FishingBot:
             return State.HOOK
         if system == "new":
             return State.PUZZLE
-        # auto: branch on detected UI; board region filled -> puzzle, else hook.
+        # auto: prefer a calibrated minigame template (robust); otherwise fall
+        # back to the board-fill heuristic.
+        if self.state_detector.templates.get("minigame") is not None:
+            return State.PUZZLE if self.state_detector.minigame_active(frame) \
+                else State.HOOK
         board_region = self._region("board")
         if board_region:
             board_frame = vision.crop(frame, tuple(board_region))
@@ -136,6 +183,7 @@ class FishingBot:
         deadline = time.time() + 15.0
         last_click = 0.0
         while self._running and self.guard.should_continue() and time.time() < deadline:
+            self._wait_if_paused()
             frame = self.capture.grab()
             sub = vision.crop(frame, tuple(region)) if region else frame
             pos = self.bite_detector.detect(sub)
@@ -159,12 +207,15 @@ class FishingBot:
         deadline = time.time() + 30.0
         stale = 0
         while self._running and self.guard.should_continue() and time.time() < deadline:
+            self._wait_if_paused()
             frame = self.capture.grab()
             board_frame = vision.crop(frame, tuple(region))
             board = self.puzzle_detector.read_board(board_frame)
             if puzzle_solver.is_complete(board):
                 break
-            piece_region = self._region("inventory")  # piece preview region
+            # Active-piece preview region; falls back to inventory for older
+            # profiles that predate the dedicated 'piece' region.
+            piece_region = self._region("piece") or self._region("inventory")
             piece_id = None
             if piece_region:
                 piece_id = self.puzzle_detector.classify_piece(
@@ -194,14 +245,14 @@ class FishingBot:
             region = self._region("inventory")
             if region:
                 self.fish_manager.process_catch(
-                    self.capture.grab(), tuple(region),
-                    click_fn=self._click_window)
+                    self.capture.grab(), tuple(region))
         return State.EQUIP_BAIT
 
     # -- main loop ----------------------------------------------------------
     def _run(self) -> None:
         self.state = State.EQUIP_BAIT
         while self._running and self.guard.should_continue():
+            self._wait_if_paused()
             self.guard.maybe_break()
             if not self._running or not self.guard.should_continue():
                 break

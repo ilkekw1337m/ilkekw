@@ -52,6 +52,9 @@ def match_template(haystack: np.ndarray, needle: np.ndarray,
             or haystack.shape[1] < needle.shape[1]):
         return None
     result = cv2.matchTemplate(haystack, needle, cv2.TM_CCOEFF_NORMED)
+    # A zero-variance (flat-colour) template makes TM_CCOEFF_NORMED produce NaN;
+    # treat non-finite scores as "no match" so we never act on garbage.
+    result = np.nan_to_num(result, nan=-1.0, posinf=-1.0, neginf=-1.0)
     _, max_val, _, max_loc = cv2.minMaxLoc(result)
     if max_val < threshold:
         return None
@@ -68,6 +71,7 @@ def match_template_all(haystack: np.ndarray, needle: np.ndarray,
             or haystack.shape[1] < needle.shape[1]):
         return []
     result = cv2.matchTemplate(haystack, needle, cv2.TM_CCOEFF_NORMED)
+    result = np.nan_to_num(result, nan=-1.0, posinf=-1.0, neginf=-1.0)
     h, w = needle.shape[:2]
     matches: List[Match] = []
     ys, xs = np.where(result >= threshold)

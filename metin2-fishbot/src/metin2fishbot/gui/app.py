@@ -194,6 +194,10 @@ class App(ctk.CTk):
             self.chat_watcher = ChatWatcher(
                 self.config_obj, capture, input_controller, bus=self.bus,
                 api_key=self.chat_tab.get_api_key() or None)
+            # Pause the fishing loop while the AI types a reply so fishing
+            # clicks don't fight chat typing (input is also lock-serialized).
+            self.chat_watcher.pause_cb = (
+                lambda p: self.bot.pause() if p else self.bot.resume())
             self.chat_watcher.start()
 
         self.start_btn.configure(state="disabled")

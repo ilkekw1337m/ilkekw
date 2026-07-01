@@ -59,3 +59,30 @@ def test_puzzle_detector_classifies_piece():
     assert det.classify_piece(red) == 1
     black = np.zeros((10, 10, 3), np.uint8)
     assert det.classify_piece(black) is None
+
+
+def test_match_template_tiny_haystack_returns_none():
+    needle = np.zeros((20, 20, 3), np.uint8)
+    haystack = np.zeros((10, 10, 3), np.uint8)
+    assert vision.match_template(haystack, needle) is None
+
+
+def test_match_template_uniform_template_confidence_is_finite():
+    # A flat-colour template can yield NaN scores under TM_CCOEFF_NORMED; the
+    # nan_to_num guard must ensure we never surface a NaN confidence (which
+    # would poison downstream comparisons).
+    import math
+
+    flat = np.full((10, 10, 3), 128, np.uint8)
+    hay = np.full((40, 40, 3), 128, np.uint8)
+    m = vision.match_template(hay, flat, threshold=0.6)
+    assert m is None or math.isfinite(m.confidence)
+
+
+def test_best_catalog_match_picks_correct_icon():
+    carp = _make_icon((40, 200, 60))
+    salmon = _make_icon((200, 120, 40))
+    name, conf = vision.best_catalog_match(carp, {"Carp": carp, "Salmon": salmon},
+                                           threshold=0.7)
+    assert name == "Carp"
+    assert conf > 0.9

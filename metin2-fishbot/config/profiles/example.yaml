@@ -14,7 +14,8 @@ fishing:
 regions:
   board: [520, 300, 192, 128]      # 6x4 jigsaw board (~32px cells)
   bite: [400, 250, 220, 180]       # area where the strike marker appears
-  inventory: [610, 120, 220, 160]  # caught-fish / active-piece preview area
+  piece: [730, 300, 64, 64]        # active jigsaw piece preview
+  inventory: [610, 120, 220, 160]  # caught-fish inventory area
   chat: [20, 470, 360, 110]        # chat / whisper area for OCR
 
 fish:

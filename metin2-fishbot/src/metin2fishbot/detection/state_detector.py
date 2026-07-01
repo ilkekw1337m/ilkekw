@@ -19,6 +19,26 @@ class StateDetector:
         self.templates = templates or {}
         self.threshold = threshold
 
+    @classmethod
+    def from_dir(cls, directory, threshold: float = 0.6,
+                 names=("minigame", "captcha", "inventory", "daily_reward")):
+        """Load named state templates (<name>.png/.jpg) from a directory."""
+        import cv2
+        from pathlib import Path
+
+        directory = Path(directory)
+        templates: Dict[str, np.ndarray] = {}
+        if directory.exists():
+            for name in names:
+                for ext in (".png", ".jpg"):
+                    path = directory / f"{name}{ext}"
+                    if path.exists():
+                        img = cv2.imread(str(path), cv2.IMREAD_COLOR)
+                        if img is not None:
+                            templates[name] = img
+                        break
+        return cls(templates, threshold=threshold)
+
     def _present(self, name: str, frame: np.ndarray) -> bool:
         tpl = self.templates.get(name)
         if tpl is None:

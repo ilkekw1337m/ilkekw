@@ -44,8 +44,12 @@ safety:
 regions:
   board: null        # jigsaw puzzle board
   bite: null         # area where the fish/strike indicator appears
+  piece: null        # active jigsaw piece preview (falls back to inventory)
   inventory: null    # caught-fish inventory area (fish recognition)
   chat: null         # chat / whisper area (chat OCR)
+
+templates:
+  state_dir: "assets/templates/state"  # optional minigame/captcha/etc templates
 
 puzzle:
   rows: 4

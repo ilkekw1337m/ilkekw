@@ -66,3 +66,24 @@ def test_bot_runs_dry_and_stops_on_action_cap():
     assert "equip_bait" in states_seen
     assert "cast" in states_seen
     assert not bot._running
+
+
+def test_bot_pause_halts_and_resume_continues():
+    cfg = _fast_config()
+    cfg.set("safety.max_actions", 0)  # unlimited so the loop keeps running
+    cap = FakeCapture()
+    bot = FishingBot(cfg, bus=EventBus(), capture=cap)
+    bot.start()
+    time.sleep(0.2)
+    bot.pause()
+    assert bot.paused
+    time.sleep(0.1)
+    paused_at = cap.grabs
+    time.sleep(0.3)
+    # While paused, the loop waits in _wait_if_paused and stops grabbing.
+    assert cap.grabs - paused_at <= 1
+    bot.resume()
+    assert not bot.paused
+    time.sleep(0.2)
+    assert cap.grabs > paused_at   # progress resumes
+    bot.stop()
